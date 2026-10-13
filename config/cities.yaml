@@ -1,0 +1,60 @@
+# Ciudades que procesa el pipeline. Para agregar una, basta con sumarla aqui:
+# el DAG la toma en la siguiente ejecucion sin tocar codigo.
+# city_id debe ser unico, en minusculas y sin espacios (es parte de la PK).
+
+cities:
+  - city_id: santiago
+    city_name: Santiago
+    country: CL
+    latitude: -33.4489
+    longitude: -70.6693
+    timezone: America/Santiago
+
+  - city_id: buenos_aires
+    city_name: Buenos Aires
+    country: AR
+    latitude: -34.6037
+    longitude: -58.3816
+    timezone: America/Argentina/Buenos_Aires
+
+  - city_id: lima
+    city_name: Lima
+    country: PE
+    latitude: -12.0464
+    longitude: -77.0428
+    timezone: America/Lima
+
+  - city_id: bogota
+    city_name: Bogotá
+    country: CO
+    latitude: 4.7110
+    longitude: -74.0721
+    timezone: America/Bogota
+
+  - city_id: ciudad_de_mexico
+    city_name: Ciudad de México
+    country: MX
+    latitude: 19.4326
+    longitude: -99.1332
+    timezone: America/Mexico_City
+
+  - city_id: sao_paulo
+    city_name: São Paulo
+    country: BR
+    latitude: -23.5505
+    longitude: -46.6333
+    timezone: America/Sao_Paulo
+
+  - city_id: montevideo
+    city_name: Montevideo
+    country: UY
+    latitude: -34.9011
+    longitude: -56.1645
+    timezone: America/Montevideo
+
+  - city_id: quito
+    city_name: Quito
+    country: EC
+    latitude: -0.1807
+    longitude: -78.4678
+    timezone: America/Guayaquil

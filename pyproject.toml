@@ -1,0 +1,37 @@
+[project]
+name = "weather-etl-pipeline"
+version = "0.1.0"
+description = "Pipeline ETL diario de datos climaticos (Open-Meteo -> PostgreSQL) orquestado con Airflow"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+# Mismas versiones que trae la imagen apache/airflow:3.3.2-python3.12,
+# para que lo que pruebas en local se comporte igual en el contenedor.
+dependencies = [
+    "pandas==3.0.5",
+    "psycopg2-binary==2.9.13",
+    "pyyaml==6.0.3",
+    "requests==2.34.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.13",
+]
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "weather_etl"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

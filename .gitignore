@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Secretos locales (usar .env.example como plantilla)
+.env
+
+# Logs de Airflow
+logs/*
+!logs/.gitkeep
+
+# Editor / SO
+.vscode/
+.idea/
+Thumbs.db

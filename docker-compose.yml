@@ -1,0 +1,141 @@
+# Stack local: Airflow 3 (LocalExecutor) + PostgreSQL como data warehouse.
+# Basado en el docker-compose oficial de Airflow 3.3.2, simplificado:
+# sin Celery/Redis, porque para un solo nodo LocalExecutor es suficiente.
+#
+# Uso:  docker compose up -d      ->  Airflow UI en http://localhost:8080
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:3.3.2-python3.12
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:?Define AIRFLOW_FERNET_KEY en .env}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?Define AIRFLOW_JWT_SECRET en .env}
+    AIRFLOW__API_AUTH__JWT_ISSUER: airflow
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    # Conexion al warehouse, disponible en los DAGs como conn_id="warehouse_db"
+    AIRFLOW_CONN_WAREHOUSE_DB: postgres://${WAREHOUSE_USER}:${WAREHOUSE_PASSWORD}@warehouse-db:5432/${WAREHOUSE_DB}
+    # Nuestro paquete (src/weather_etl) importable desde los DAGs
+    PYTHONPATH: /opt/airflow/src
+    WEATHER_CITIES_CONFIG: /opt/airflow/pipeline_config/cities.yaml
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./src:/opt/airflow/src:ro
+    - ./config:/opt/airflow/pipeline_config:ro
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on: &airflow-common-depends-on
+    airflow-db:
+      condition: service_healthy
+    warehouse-db:
+      condition: service_healthy
+
+services:
+  # Base de metadatos interna de Airflow (no es nuestro warehouse)
+  airflow-db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+  # Data warehouse del proyecto. Los scripts de sql/init se ejecutan
+  # solo la primera vez (cuando el volumen esta vacio).
+  warehouse-db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${WAREHOUSE_USER:?Define WAREHOUSE_USER en .env}
+      POSTGRES_PASSWORD: ${WAREHOUSE_PASSWORD:?Define WAREHOUSE_PASSWORD en .env}
+      POSTGRES_DB: ${WAREHOUSE_DB:?Define WAREHOUSE_DB en .env}
+    ports:
+      - "5433:5432"
+    volumes:
+      - warehouse-db-volume:/var/lib/postgresql/data
+      - ./sql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+  # Migra la base de metadatos y crea el usuario admin; termina y se apaga.
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        mkdir -p /opt/airflow/logs
+        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/logs
+        exec /entrypoint airflow version
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-airflow}
+    user: "0:0"
+
+  airflow-apiserver:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+volumes:
+  airflow-db-volume:
+  warehouse-db-volume:
