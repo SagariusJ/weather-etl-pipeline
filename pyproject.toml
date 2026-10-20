@@ -35,3 +35,4 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["integration: necesita PostgreSQL (definir TEST_WAREHOUSE_DB)"]

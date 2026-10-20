@@ -76,7 +76,7 @@ def connect_from_env() -> Connection:
     """
     return psycopg2.connect(
         host=os.environ.get("WAREHOUSE_HOST", "localhost"),
-        port=int(os.environ.get("WAREHOUSE_PORT", "5433")),
+        port=int(os.environ.get("WAREHOUSE_PORT", "15432")),
         dbname=os.environ["WAREHOUSE_DB"],
         user=os.environ["WAREHOUSE_USER"],
         password=os.environ["WAREHOUSE_PASSWORD"],

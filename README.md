@@ -57,7 +57,7 @@ docker compose up -d
 #    y ejecutar el DAG `warehouse_healthcheck` para validar la instalación.
 ```
 
-El warehouse queda disponible en `localhost:5433` (credenciales `WAREHOUSE_*` del `.env`).
+El warehouse queda disponible en `localhost:15432` (credenciales `WAREHOUSE_*` del `.env`).
 
 ### Desarrollo local
 

@@ -1,0 +1,54 @@
+# Integracion continua: en cada push o pull request, GitHub ejecuta el linter
+# y todos los tests (incluidos los de integracion contra un PostgreSQL real).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    # PostgreSQL temporal solo para los tests: se crea al empezar y se destruye al terminar.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: weather
+          POSTGRES_PASSWORD: ci_only_password  # base desechable del CI, no es un secreto real
+          POSTGRES_DB: weather_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U weather"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      WAREHOUSE_HOST: localhost
+      WAREHOUSE_PORT: "5432"
+      WAREHOUSE_USER: weather
+      WAREHOUSE_PASSWORD: ci_only_password
+      TEST_WAREHOUSE_DB: weather_test
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --locked
+
+      - name: Linter (ruff)
+        run: uv run ruff check .
+
+      - name: Formato (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Tests (pytest)
+        run: uv run pytest -v
